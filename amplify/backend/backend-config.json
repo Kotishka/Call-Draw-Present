@@ -1,0 +1,10 @@
+{
+  "auth": {
+    "calldrawpresent872b96dc": {
+      "service": "Cognito",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [],
+      "customAuth": false
+    }
+  }
+}
