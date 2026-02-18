@@ -95,7 +95,8 @@ export default function NewGame() {
 
         try {
             // Call backend API to create game
-            const response = await fetch('/api/game/create', {
+            const SERVER_URL = process.env.REACT_APP_SERVER_URL || '';
+            const response = await fetch(`${SERVER_URL}/api/game/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
