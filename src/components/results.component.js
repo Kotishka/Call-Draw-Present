@@ -16,7 +16,8 @@ export default function Results() {
 
     const loadResults = async () => {
         try {
-            const response = await fetch(`/api/game/${code}`);
+            const SERVER_URL = process.env.REACT_APP_SERVER_URL || '';
+            const response = await fetch(`${SERVER_URL}/api/game/${code}`);
             const data = await response.json();
 
             if (!response.ok || !data.game) {

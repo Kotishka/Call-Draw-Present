@@ -27,7 +27,8 @@ export default function Game() {
         if (!socket) return;
 
         // Load game data
-        fetch(`/api/game/${code}`)
+        const SERVER_URL = process.env.REACT_APP_SERVER_URL || '';
+        fetch(`${SERVER_URL}/api/game/${code}`)
             .then(res => res.json())
             .then(data => {
                 if (data.game) {
