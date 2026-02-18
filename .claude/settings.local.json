@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npm outdated:*)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ]
   }
 }

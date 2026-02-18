@@ -2,6 +2,7 @@
   "name": "client",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://kotishka.github.io/Call-Draw-Present",
   "dependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
@@ -23,9 +24,12 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "server": "cd server && npm run dev",
-    "dev": "npm-run-all --parallel server start"
+    "dev": "npm-run-all --parallel server start",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "npm-run-all": "^4.1.5"
   },
   "eslintConfig": {
