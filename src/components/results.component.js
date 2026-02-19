@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Button, Alert, Spinner, Accordion, Badge } from 'react-bootstrap';
+import { Card, Button, Alert, Spinner, Accordion, Badge } from 'react-bootstrap';
 
 export default function Results() {
     const { code } = useParams();
@@ -26,7 +26,6 @@ export default function Results() {
                 return;
             }
 
-            // Organize submissions into chains by player order
             const playerChains = buildChains(data.game);
             setChains(playerChains);
             setLoading(false);
@@ -41,16 +40,13 @@ export default function Results() {
         const playerCount = game.players.length;
         const chains = [];
 
-        // Create a chain for each starting player
         for (let startOrder = 0; startOrder < playerCount; startOrder++) {
             const chain = {
                 startPlayer: game.players[startOrder],
                 submissions: []
             };
 
-            // Follow the chain through all rounds
             for (let round = 1; round <= game.maxRounds; round++) {
-                // Calculate which player submitted in this round for this chain
                 const playerOrder = (startOrder + round - 1) % playerCount;
                 const player = game.players.find(p => p.order === playerOrder);
 
@@ -107,69 +103,84 @@ export default function Results() {
                 </Card.Body>
             </Card>
 
-            <h3 className="mb-3">Submission Chains</h3>
-            <p className="text-muted mb-4">Each accordion shows one complete chain from start to finish</p>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <h3 className="mb-0">Submission Chains</h3>
+            </div>
+            <p className="text-muted mb-4">Follow each chain from start to finish to see how the phrase evolved</p>
 
             <Accordion defaultActiveKey="0">
                 {chains.map((chain, index) => (
                     <Accordion.Item eventKey={index.toString()} key={index}>
                         <Accordion.Header>
                             <strong>Chain {index + 1}:</strong>&nbsp;Started by {chain.startPlayer.name}
-                            <Badge bg="secondary" className="ms-2">{chain.submissions.length} submissions</Badge>
+                            <Badge bg="secondary" className="ms-2">{chain.submissions.length} steps</Badge>
                         </Accordion.Header>
                         <Accordion.Body>
                             {chain.submissions.length === 0 ? (
                                 <Alert variant="info">No submissions in this chain</Alert>
                             ) : (
-                                <Row>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        overflowX: 'auto',
+                                        gap: '0',
+                                        padding: '8px 0 16px 0',
+                                        alignItems: 'stretch'
+                                    }}
+                                >
                                     {chain.submissions.map((submission, subIndex) => (
-                                        <Col md={6} lg={4} key={subIndex} className="mb-4">
-                                            <Card className="h-100">
-                                                <Card.Header className="bg-light">
-                                                    <div className="d-flex justify-content-between align-items-center">
-                                                        <span>
+                                        <React.Fragment key={subIndex}>
+                                            {/* Step Card */}
+                                            <div style={{ minWidth: '220px', maxWidth: '260px', flexShrink: 0 }}>
+                                                <Card className="h-100 shadow-sm">
+                                                    <Card.Header className="bg-light py-2">
+                                                        <div className="d-flex justify-content-between align-items-center">
+                                                            <Badge bg={submission.type === 'TEXT' ? 'info' : 'success'}>
+                                                                {submission.type === 'TEXT' ? '📝 Text' : '🎨 Drawing'}
+                                                            </Badge>
                                                             <Badge bg="primary">Round {submission.round}</Badge>
-                                                        </span>
-                                                        <span className="text-muted small">{submission.player.name}</span>
-                                                    </div>
-                                                </Card.Header>
-                                                <Card.Body>
-                                                    {submission.type === 'TEXT' ? (
-                                                        <>
-                                                            <div className="text-center mb-2">
-                                                                <Badge bg="info">📝 Text</Badge>
-                                                            </div>
-                                                            <p className="fs-5 text-center">"{submission.content}"</p>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="text-center mb-2">
-                                                                <Badge bg="success">🎨 Drawing</Badge>
-                                                            </div>
-                                                            <div className="text-center">
-                                                                <img
-                                                                    src={submission.imageData}
-                                                                    alt={`Drawing by ${submission.player.name}`}
-                                                                    className="img-fluid rounded"
-                                                                    style={{ maxHeight: '300px', border: '1px solid #ddd' }}
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </Card.Body>
-                                            </Card>
-                                        </Col>
-                                    ))}
-                                </Row>
-                            )}
+                                                        </div>
+                                                        <div className="text-muted small mt-1 text-center">
+                                                            {submission.player.name}
+                                                        </div>
+                                                    </Card.Header>
+                                                    <Card.Body className="d-flex align-items-center justify-content-center p-2" style={{ minHeight: '160px' }}>
+                                                        {submission.type === 'TEXT' ? (
+                                                            <p className="fs-6 text-center mb-0 fst-italic">
+                                                                "{submission.content}"
+                                                            </p>
+                                                        ) : (
+                                                            <img
+                                                                src={submission.imageData}
+                                                                alt={`Drawing by ${submission.player.name}`}
+                                                                style={{
+                                                                    maxWidth: '100%',
+                                                                    maxHeight: '200px',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid #ddd'
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </Card.Body>
+                                                </Card>
+                                            </div>
 
-                            {chain.submissions.length >= 2 && (
-                                <Alert variant="success" className="mt-3">
-                                    <strong>Transformation:</strong> "{chain.submissions[0].content}"
-                                    {chain.submissions.length > 1 && chain.submissions[chain.submissions.length - 1].type === 'TEXT' &&
-                                        ` → "${chain.submissions[chain.submissions.length - 1].content}"`
-                                    }
-                                </Alert>
+                                            {/* Arrow between steps */}
+                                            {subIndex < chain.submissions.length - 1 && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    padding: '0 8px',
+                                                    color: '#6c757d',
+                                                    fontSize: '1.5rem',
+                                                    flexShrink: 0
+                                                }}>
+                                                    →
+                                                </div>
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
                             )}
                         </Accordion.Body>
                     </Accordion.Item>
