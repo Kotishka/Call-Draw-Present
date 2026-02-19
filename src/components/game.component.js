@@ -24,6 +24,8 @@ export default function Game() {
     const [submittedCount, setSubmittedCount] = useState(0);
     const [secondsLeft, setSecondsLeft] = useState(null);
     const [timerDuration, setTimerDuration] = useState(null);
+    const [promptSuggestion, setPromptSuggestion] = useState(null);
+    const [promptDismissed, setPromptDismissed] = useState(false);
 
     useEffect(() => {
         if (!socket) return;
@@ -73,6 +75,12 @@ export default function Game() {
         socket.on('gameStarted', ({ game: updatedGame }) => {
             setGame(updatedGame);
             setTimerDuration(updatedGame.timerDuration || null);
+            // Find prompt suggestion for current player
+            const self = updatedGame.players.find(p => p.socketId === socket.id);
+            if (self?.promptSuggestion) {
+                setPromptSuggestion(self.promptSuggestion);
+                setPromptDismissed(false);
+            }
             socket.emit('getPreviousSubmission', { gameCode: code });
         });
 
@@ -95,6 +103,8 @@ export default function Game() {
             setIsSubmitting(false);
             setSubmittedCount(0);
             setSecondsLeft(null);
+            setPromptSuggestion(null);
+            setPromptDismissed(false);
             clearCanvas();
             socket.emit('getPreviousSubmission', { gameCode: code });
         });
@@ -414,6 +424,13 @@ export default function Game() {
                             <>
                                 {isCurrentPlayerTurn ? (
                                     <div>
+                                        {promptSuggestion && !promptDismissed && game.currentRound === 1 && (
+                                            <Alert variant="warning" dismissible onClose={() => setPromptDismissed(true)} className="mb-3">
+                                                <strong>💡 Prompt suggestion:</strong> "{promptSuggestion}"
+                                                <br />
+                                                <small className="text-muted">Feel free to use this or write your own phrase.</small>
+                                            </Alert>
+                                        )}
                                         <Form.Group className="mb-3">
                                             <Form.Label>
                                                 {game.currentRound === 1
