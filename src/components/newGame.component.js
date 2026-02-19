@@ -135,7 +135,7 @@ export default function NewGame() {
     };
 
     const copyGameLink = () => {
-        const link = `${window.location.origin}/game/${gameCode}`;
+        const link = `${window.location.origin}${window.location.pathname}#/game/${gameCode}`;
         copy(link);
         setShowCopyAlert(true);
         setTimeout(() => setShowCopyAlert(false), 3000);
@@ -262,7 +262,7 @@ export default function NewGame() {
                             <p className="mb-2"><strong>Or share the link:</strong></p>
                             <InputGroup>
                                 <Form.Control
-                                    value={`${window.location.origin}/game/${gameCode}`}
+                                    value={`${window.location.origin}${window.location.pathname}#/game/${gameCode}`}
                                     readOnly
                                     className="text-truncate"
                                 />
