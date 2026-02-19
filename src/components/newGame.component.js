@@ -16,6 +16,7 @@ export default function NewGame() {
     const [maxRounds, setMaxRounds] = useState(6);
     const [minPlayers, setMinPlayers] = useState(3);
     const [timerDuration, setTimerDuration] = useState(null);
+    const [prompts, setPrompts] = useState('');
     const [currentPlayer, setCurrentPlayer] = useState(null);
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -104,7 +105,8 @@ export default function NewGame() {
                     hostName: playerName.trim(),
                     maxRounds: maxRounds,
                     minPlayers: minPlayers,
-                    timerDuration: timerDuration
+                    timerDuration: timerDuration,
+                    prompts: prompts
                 })
             });
 
@@ -226,6 +228,20 @@ export default function NewGame() {
                                 </Form.Select>
                                 <Form.Text className="text-muted">
                                     Auto-submits when time runs out
+                                </Form.Text>
+                            </Form.Group>
+
+                            <Form.Group className="mb-4">
+                                <Form.Label>Theme / Word Prompts <span className="text-muted fw-normal">(optional)</span></Form.Label>
+                                <Form.Control
+                                    as="textarea"
+                                    rows={4}
+                                    placeholder={"A dog flying a kite\nThe moon made of cheese\nA wizard doing laundry"}
+                                    value={prompts}
+                                    onChange={(e) => setPrompts(e.target.value)}
+                                />
+                                <Form.Text className="text-muted">
+                                    One prompt per line (or comma-separated). Each player gets a random suggestion in round 1 — they can use it or write their own.
                                 </Form.Text>
                             </Form.Group>
 

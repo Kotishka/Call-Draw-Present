@@ -120,7 +120,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/game/create', (req, res) => {
-  const { hostName, maxRounds, minPlayers, timerDuration } = req.body;
+  const { hostName, maxRounds, minPlayers, timerDuration, prompts } = req.body;
 
   if (!hostName || !hostName.trim()) {
     return res.status(400).json({ error: 'Host name is required' });
@@ -130,6 +130,16 @@ app.post('/api/game/create', (req, res) => {
   const validatedMinPlayers = minPlayers && minPlayers >= 2 && minPlayers <= 10 ? minPlayers : 3;
   const validTimerValues = [30, 60, 90, 120];
   const validatedTimerDuration = validTimerValues.includes(timerDuration) ? timerDuration : null;
+
+  // Parse prompts: accept comma or newline separated string
+  let validatedPrompts = [];
+  if (typeof prompts === 'string' && prompts.trim()) {
+    validatedPrompts = prompts
+      .split(/[\n,]/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0 && s.length <= 100)
+      .slice(0, 50);
+  }
 
   const gameCode = generateGameCode();
   const gameId = uuidv4();
@@ -143,6 +153,7 @@ app.post('/api/game/create', (req, res) => {
     maxRounds: validatedMaxRounds,
     minPlayers: validatedMinPlayers,
     timerDuration: validatedTimerDuration,
+    prompts: validatedPrompts,
     players: [],
     submissions: [],
     activeTimers: {},
@@ -253,6 +264,14 @@ io.on('connection', (socket) => {
 
     game.status = 'IN_PROGRESS';
     game.currentRound = 1;
+
+    // Assign random prompt suggestions to players if prompts are configured
+    if (game.prompts && game.prompts.length > 0) {
+      const shuffled = [...game.prompts].sort(() => Math.random() - 0.5);
+      game.players.forEach((player, i) => {
+        player.promptSuggestion = shuffled[i % shuffled.length];
+      });
+    }
 
     io.to(gameCode.toUpperCase()).emit('gameStarted', { game: sanitizeGameForClient(game) });
     startRoundTimer(gameCode.toUpperCase(), 1);
