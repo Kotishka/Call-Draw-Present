@@ -22,6 +22,8 @@ export default function Game() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [submittedCount, setSubmittedCount] = useState(0);
+    const [secondsLeft, setSecondsLeft] = useState(null);
+    const [timerDuration, setTimerDuration] = useState(null);
 
     useEffect(() => {
         if (!socket) return;
@@ -70,7 +72,12 @@ export default function Game() {
 
         socket.on('gameStarted', ({ game: updatedGame }) => {
             setGame(updatedGame);
+            setTimerDuration(updatedGame.timerDuration || null);
             socket.emit('getPreviousSubmission', { gameCode: code });
+        });
+
+        socket.on('timerUpdate', ({ secondsLeft: sLeft, roundNumber }) => {
+            setSecondsLeft(sLeft);
         });
 
         socket.on('previousSubmission', ({ submission }) => {
@@ -87,6 +94,7 @@ export default function Game() {
             setPreviousSubmission(null);
             setIsSubmitting(false);
             setSubmittedCount(0);
+            setSecondsLeft(null);
             clearCanvas();
             socket.emit('getPreviousSubmission', { gameCode: code });
         });
@@ -113,6 +121,7 @@ export default function Game() {
             socket.off('playerJoined');
             socket.off('playersUpdate');
             socket.off('gameStarted');
+            socket.off('timerUpdate');
             socket.off('previousSubmission');
             socket.off('submissionReceived');
             socket.off('nextRound');
@@ -361,9 +370,27 @@ export default function Game() {
             <Col lg={9}>
                 <Card className="shadow">
                     <Card.Body>
-                        <h3 className="mb-4">
-                            {isCurrentPlayerTurn ? '📝 Write Your Phrase' : '🎨 Draw What You See'}
-                        </h3>
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h3 className="mb-0">
+                                {isCurrentPlayerTurn ? '📝 Write Your Phrase' : '🎨 Draw What You See'}
+                            </h3>
+                            {timerDuration && secondsLeft !== null && (
+                                <div className="text-end" style={{ minWidth: '120px' }}>
+                                    <div className={`fw-bold fs-4 ${secondsLeft <= 10 ? 'text-danger' : 'text-dark'}`}>
+                                        ⏱ {secondsLeft > 0 ? `${secondsLeft}s` : 'Time\'s up!'}
+                                    </div>
+                                    <div style={{ height: '6px', background: '#dee2e6', borderRadius: '3px', marginTop: '4px' }}>
+                                        <div style={{
+                                            height: '100%',
+                                            width: `${Math.max(0, (secondsLeft / timerDuration) * 100)}%`,
+                                            background: secondsLeft <= 10 ? '#dc3545' : '#0d6efd',
+                                            borderRadius: '3px',
+                                            transition: 'width 1s linear'
+                                        }} />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         {previousSubmission && (
                             <Alert variant="info">

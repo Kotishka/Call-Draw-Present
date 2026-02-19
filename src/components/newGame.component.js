@@ -15,6 +15,7 @@ export default function NewGame() {
     const [gameCreated, setGameCreated] = useState(false);
     const [maxRounds, setMaxRounds] = useState(6);
     const [minPlayers, setMinPlayers] = useState(3);
+    const [timerDuration, setTimerDuration] = useState(null);
     const [currentPlayer, setCurrentPlayer] = useState(null);
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -102,7 +103,8 @@ export default function NewGame() {
                 body: JSON.stringify({
                     hostName: playerName.trim(),
                     maxRounds: maxRounds,
-                    minPlayers: minPlayers
+                    minPlayers: minPlayers,
+                    timerDuration: timerDuration
                 })
             });
 
@@ -207,6 +209,23 @@ export default function NewGame() {
                                 />
                                 <Form.Text className="text-muted">
                                     Minimum number of players required to start the game (2-10)
+                                </Form.Text>
+                            </Form.Group>
+
+                            <Form.Group className="mb-4">
+                                <Form.Label>Round Timer</Form.Label>
+                                <Form.Select
+                                    value={timerDuration === null ? 'off' : timerDuration}
+                                    onChange={(e) => setTimerDuration(e.target.value === 'off' ? null : parseInt(e.target.value))}
+                                >
+                                    <option value="off">Off (no limit)</option>
+                                    <option value="30">30 seconds</option>
+                                    <option value="60">60 seconds</option>
+                                    <option value="90">90 seconds</option>
+                                    <option value="120">120 seconds</option>
+                                </Form.Select>
+                                <Form.Text className="text-muted">
+                                    Auto-submits when time runs out
                                 </Form.Text>
                             </Form.Group>
 
