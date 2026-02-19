@@ -2,13 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Button, Form, ListGroup, Alert, Spinner, Badge } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
+import { useGameSocket } from '../hooks/useGameSocket';
+import DrawingCanvas from './DrawingCanvas';
+import { validatePlayerName } from '../utils/validation';
 
 export default function Game() {
     const { code } = useParams();
     const navigate = useNavigate();
     const { socket } = useSocket();
     const canvasRef = useRef(null);
-    const [isDrawing, setIsDrawing] = useState(false);
+
     const [game, setGame] = useState(null);
     const [players, setPlayers] = useState([]);
     const [currentPlayer, setCurrentPlayer] = useState(null);
@@ -17,16 +20,15 @@ export default function Game() {
     const [currentSubmission, setCurrentSubmission] = useState('');
     const [previousSubmission, setPreviousSubmission] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [canvasColor, setCanvasColor] = useState('#000000');
-    const [canvasSize, setCanvasSize] = useState(3);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [notification, setNotification] = useState('');
     const [submittedCount, setSubmittedCount] = useState(0);
 
+    // Load initial game data
     useEffect(() => {
         if (!socket) return;
 
-        // Load game data
         const SERVER_URL = process.env.REACT_APP_SERVER_URL || '';
         fetch(`${SERVER_URL}/api/game/${code}`)
             .then(res => res.json())
@@ -35,12 +37,10 @@ export default function Game() {
                     setGame(data.game);
                     setPlayers(data.game.players);
 
-                    // Check if current socket is already a player in this game
                     const existingPlayer = data.game.players.find(p => p.socketId === socket.id);
                     if (existingPlayer) {
                         setCurrentPlayer(existingPlayer);
                         setHasJoined(true);
-                        console.log('Player already in game:', existingPlayer.name);
                     }
 
                     setLoading(false);
@@ -54,168 +54,88 @@ export default function Game() {
                 setError('Failed to load game');
                 setLoading(false);
             });
+    }, [socket, code]);
 
-        // Socket event listeners
-        socket.on('playerJoined', ({ player, game: updatedGame }) => {
+    // Socket event handlers
+    useGameSocket(code, {
+        onPlayerJoined: ({ player, game: updatedGame }) => {
             setCurrentPlayer(player);
             setGame(updatedGame);
             setPlayers(updatedGame.players);
             setHasJoined(true);
             setLoading(false);
-        });
-
-        socket.on('playersUpdate', ({ players: updatedPlayers }) => {
+        },
+        onPlayersUpdate: ({ players: updatedPlayers }) => {
             setPlayers(updatedPlayers);
-        });
-
-        socket.on('gameStarted', ({ game: updatedGame }) => {
+        },
+        onGameStarted: (updatedGame) => {
             setGame(updatedGame);
-            socket.emit('getPreviousSubmission', { gameCode: code });
-        });
-
-        socket.on('previousSubmission', ({ submission }) => {
+        },
+        onPreviousSubmission: ({ submission }) => {
             setPreviousSubmission(submission);
-        });
-
-        socket.on('submissionReceived', ({ playerName: submittedPlayer, submitted, total }) => {
+        },
+        onSubmissionReceived: ({ submitted }) => {
             setSubmittedCount(submitted);
-        });
-
-        socket.on('nextRound', ({ game: updatedGame }) => {
+        },
+        onNextRound: (updatedGame) => {
             setGame(updatedGame);
             setCurrentSubmission('');
             setPreviousSubmission(null);
             setIsSubmitting(false);
             setSubmittedCount(0);
-            clearCanvas();
-            socket.emit('getPreviousSubmission', { gameCode: code });
-        });
-
-        socket.on('gameComplete', ({ game: updatedGame, submissions }) => {
+        },
+        onGameComplete: (updatedGame) => {
             setGame(updatedGame);
-            // Navigate to results page
-            setTimeout(() => {
-                navigate(`/results/${code}`);
-            }, 1000);
-        });
-
-        socket.on('playerLeft', ({ playerName: leftPlayer, players: updatedPlayers }) => {
+        },
+        onPlayerLeft: ({ playerName: leftPlayer, players: updatedPlayers }) => {
             setPlayers(updatedPlayers);
-            alert(`${leftPlayer} left the game`);
-        });
-
-        socket.on('error', ({ message }) => {
-            alert(message);
+            setNotification(`${leftPlayer} left the game`);
+        },
+        onError: ({ message }) => {
+            setError(message);
             setIsSubmitting(false);
-        });
-
-        return () => {
-            socket.off('playerJoined');
-            socket.off('playersUpdate');
-            socket.off('gameStarted');
-            socket.off('previousSubmission');
-            socket.off('submissionReceived');
-            socket.off('nextRound');
-            socket.off('gameComplete');
-            socket.off('playerLeft');
-            socket.off('error');
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [socket, code]);
+        }
+    });
 
     const handleJoinGame = () => {
-        const trimmedName = playerName.trim();
-
-        if (!trimmedName) {
-            setError('Please enter your name');
-            return;
-        }
-
-        if (trimmedName.length < 2) {
-            setError('Name must be at least 2 characters long');
-            return;
-        }
-
-        if (trimmedName.length > 20) {
-            setError('Name must be 20 characters or less');
+        const nameError = validatePlayerName(playerName);
+        if (nameError) {
+            setError(nameError);
             return;
         }
 
         setError('');
         setLoading(true);
-
         socket.emit('joinGame', {
             gameCode: code,
-            playerName: trimmedName
-        });
-    };
-
-    const clearCanvas = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    };
-
-    const startDrawing = (e) => {
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        const ctx = canvas.getContext('2d');
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        setIsDrawing(true);
-    };
-
-    const draw = (e) => {
-        if (!isDrawing) return;
-
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        const ctx = canvas.getContext('2d');
-        ctx.lineTo(x, y);
-        ctx.strokeStyle = canvasColor;
-        ctx.lineWidth = canvasSize;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-    };
-
-    const stopDrawing = () => {
-        setIsDrawing(false);
-    };
-
-    const handleSubmitDrawing = () => {
-        setIsSubmitting(true);
-        const canvas = canvasRef.current;
-        const imageData = canvas.toDataURL('image/png');
-
-        socket.emit('submitContent', {
-            gameCode: code,
-            type: 'DRAWING',
-            content: 'Drawing',
-            imageData: imageData
+            playerName: playerName.trim()
         });
     };
 
     const handleSubmitText = () => {
         if (!currentSubmission.trim()) {
-            alert('Please enter some text');
+            setError('Please enter some text');
             return;
         }
 
         setIsSubmitting(true);
-
         socket.emit('submitContent', {
             gameCode: code,
             type: 'TEXT',
             content: currentSubmission.trim(),
             imageData: null
+        });
+    };
+
+    const handleSubmitDrawing = () => {
+        const imageData = canvasRef.current?.getImageData();
+        if (!imageData) return;
+        setIsSubmitting(true);
+        socket.emit('submitContent', {
+            gameCode: code,
+            type: 'DRAWING',
+            content: 'Drawing',
+            imageData
         });
     };
 
@@ -228,7 +148,7 @@ export default function Game() {
         );
     }
 
-    if (error) {
+    if (error && !hasJoined) {
         return (
             <Alert variant="danger" className="text-center">
                 {error}
@@ -263,7 +183,7 @@ export default function Game() {
                                     value={playerName}
                                     onChange={(e) => setPlayerName(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleJoinGame()}
-                                    isInvalid={error && !playerName.trim()}
+                                    isInvalid={!!error && !playerName.trim()}
                                     maxLength={20}
                                 />
                                 <Form.Text className="text-muted">
@@ -301,9 +221,7 @@ export default function Game() {
                             <ListGroup>
                                 {players.map((player) => (
                                     <ListGroup.Item key={player.id} className="d-flex justify-content-between align-items-center">
-                                        <span>
-                                            {player.name}
-                                        </span>
+                                        <span>{player.name}</span>
                                         <span>
                                             {player.isHost && <Badge bg="primary" className="me-2">Host</Badge>}
                                             {currentPlayer && player.id === currentPlayer.id && <Badge bg="success">You</Badge>}
@@ -324,8 +242,7 @@ export default function Game() {
         );
     }
 
-    const isCurrentPlayerTurn = game.currentRound % 2 === 1;
-    const hasSubmitted = isSubmitting;
+    const isTextRound = game.currentRound % 2 === 1;
 
     return (
         <Row>
@@ -359,10 +276,20 @@ export default function Game() {
             </Col>
 
             <Col lg={9}>
+                {notification && (
+                    <Alert variant="warning" dismissible onClose={() => setNotification('')} className="mb-3">
+                        {notification}
+                    </Alert>
+                )}
+                {error && (
+                    <Alert variant="danger" dismissible onClose={() => setError('')} className="mb-3">
+                        {error}
+                    </Alert>
+                )}
                 <Card className="shadow">
                     <Card.Body>
                         <h3 className="mb-4">
-                            {isCurrentPlayerTurn ? '📝 Write Your Phrase' : '🎨 Draw What You See'}
+                            {isTextRound ? '📝 Write Your Phrase' : '🎨 Draw What You See'}
                         </h3>
 
                         {previousSubmission && (
@@ -378,14 +305,14 @@ export default function Game() {
                             </Alert>
                         )}
 
-                        {hasSubmitted ? (
+                        {isSubmitting ? (
                             <Alert variant="success">
                                 <h5>Submission received!</h5>
                                 <p>Waiting for other players... ({submittedCount}/{players.length})</p>
                             </Alert>
                         ) : (
                             <>
-                                {isCurrentPlayerTurn ? (
+                                {isTextRound ? (
                                     <div>
                                         <Form.Group className="mb-3">
                                             <Form.Label>
@@ -407,63 +334,22 @@ export default function Game() {
                                             onClick={handleSubmitText}
                                             disabled={isSubmitting}
                                         >
-                                            {isSubmitting ? 'Submitting...' : 'Submit'}
+                                            Submit
                                         </Button>
                                     </div>
                                 ) : (
                                     <div>
                                         <div className="mb-3">
-                                            <Row className="mb-2">
-                                                <Col>
-                                                    <Form.Label>Brush Color:</Form.Label>
-                                                    <Form.Control
-                                                        type="color"
-                                                        value={canvasColor}
-                                                        onChange={(e) => setCanvasColor(e.target.value)}
-                                                    />
-                                                </Col>
-                                                <Col>
-                                                    <Form.Label>Brush Size: {canvasSize}px</Form.Label>
-                                                    <Form.Range
-                                                        min="1"
-                                                        max="20"
-                                                        value={canvasSize}
-                                                        onChange={(e) => setCanvasSize(parseInt(e.target.value))}
-                                                    />
-                                                </Col>
-                                                <Col className="d-flex align-items-end">
-                                                    <Button variant="secondary" onClick={clearCanvas}>
-                                                        Clear Canvas
-                                                    </Button>
-                                                </Col>
-                                            </Row>
+                                            <DrawingCanvas ref={canvasRef} />
                                         </div>
-                                        <canvas
-                                            ref={canvasRef}
-                                            width={800}
-                                            height={600}
-                                            style={{
-                                                border: '2px solid #ddd',
-                                                borderRadius: '8px',
-                                                cursor: 'crosshair',
-                                                backgroundColor: '#ffffff',
-                                                maxWidth: '100%'
-                                            }}
-                                            onMouseDown={startDrawing}
-                                            onMouseMove={draw}
-                                            onMouseUp={stopDrawing}
-                                            onMouseLeave={stopDrawing}
-                                        />
-                                        <div className="mt-3">
-                                            <Button
-                                                variant="success"
-                                                size="lg"
-                                                onClick={handleSubmitDrawing}
-                                                disabled={isSubmitting}
-                                            >
-                                                {isSubmitting ? 'Submitting...' : 'Submit Drawing'}
-                                            </Button>
-                                        </div>
+                                        <Button
+                                            variant="success"
+                                            size="lg"
+                                            onClick={handleSubmitDrawing}
+                                            disabled={isSubmitting}
+                                        >
+                                            Submit Drawing
+                                        </Button>
                                     </div>
                                 )}
                             </>

@@ -17,6 +17,9 @@ A multiplayer web-based telephone game where players alternate between writing p
 - 🎨 HTML5 canvas for drawing with customizable colors and brush sizes
 - 🔗 Easy game joining with 6-character codes
 - 📱 Responsive design for desktop and mobile
+- ⏱️ Optional per-round countdown timer with auto-submit on expiry
+- 💡 Custom theme prompts to inspire players in round 1
+- 🖼️ Export individual chains or the full game as a PNG image
 - 🚫 No authentication required - just enter your name and play
 - 💾 No database needed - games stored in memory
 - ⚡ Fast and lightweight
@@ -29,6 +32,7 @@ A multiplayer web-based telephone game where players alternate between writing p
 - React Bootstrap 5
 - Socket.IO Client
 - HTML5 Canvas
+- html2canvas (PNG export)
 
 **Backend:**
 - Node.js
@@ -77,86 +81,25 @@ The app will open at http://localhost:3000
 
 ## 🌐 Deployment
 
-### Option 1: Deploy to Render (Recommended - Free Tier Available)
+The live app is hosted on:
+- **Frontend**: [GitHub Pages](https://kotishka.github.io/Call-Draw-Present) — built and deployed automatically via GitHub Actions on every push to `master`
+- **Backend**: [Render](https://call-draw-present.onrender.com) — deployed from the `server/` directory
 
-**Backend Deployment:**
-1. Push your code to GitHub
-2. Go to [Render Dashboard](https://render.com)
-3. Create a new "Web Service"
-4. Connect your GitHub repository
-5. Configure:
-   - **Root Directory**: `server`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Environment**: Node
-6. Add environment variable:
-   - `CLIENT_URL`: Your frontend URL (e.g., `https://your-app.onrender.com`)
-7. Deploy!
-
-**Frontend Deployment:**
-1. In Render, create a new "Static Site"
-2. Connect your GitHub repository
-3. Configure:
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `build`
-4. Add environment variable:
-   - `REACT_APP_SERVER_URL`: Your backend URL (e.g., `https://your-api.onrender.com`)
-5. Deploy!
-
-### Option 2: Deploy to Railway
-
-**Backend:**
-```bash
-cd server
-railway login
-railway init
-railway up
-```
-
-**Frontend:**
-Build the app and deploy the `build` folder to any static hosting service.
-
-### Option 3: Deploy to Heroku
-
-**Backend:**
-1. Create a `Procfile` in the server directory:
-   ```
-   web: node server.js
-   ```
-2. Deploy:
-   ```bash
-   cd server
-   heroku create your-app-name
-   git push heroku master
-   ```
-
-**Frontend:**
-Build and deploy to Netlify, Vercel, or GitHub Pages.
-
-### Option 4: Deploy to a VPS (DigitalOcean, Linode, etc.)
-
-1. SSH into your server
-2. Install Node.js and npm
-3. Clone your repository
-4. Install dependencies (both client and server)
-5. Build the React app: `npm run build`
-6. Use PM2 to run the backend:
-   ```bash
-   npm install -g pm2
-   cd server
-   pm2 start server.js --name call-draw-present
-   ```
-7. Serve the React build folder with nginx or serve it from Express
+To deploy your own instance:
+1. Deploy the `server/` folder to any Node.js host (Render, Railway, Fly.io, etc.) and note the URL
+2. Set the `CLIENT_URL` environment variable on the server to your frontend origin
+3. Set `REACT_APP_SERVER_URL` in your CI/CD environment (or `.env.production`) to the backend URL
+4. Build and deploy the React app to any static host
 
 ## 🔧 Environment Variables
 
-**Server (.env in server directory):**
+**Server (`server/.env`):**
 ```env
 PORT=5000
 CLIENT_URL=http://localhost:3000
 ```
 
-**Client (.env in root directory):**
+**Client (`.env.local` or CI environment):**
 ```env
 REACT_APP_SERVER_URL=http://localhost:5000
 ```
@@ -172,8 +115,10 @@ Call-Draw-Present/
 ├── src/
 │   ├── components/           # React components
 │   │   ├── home.component.js       # Landing page
-│   │   ├── newGame.component.js    # Game creation
-│   │   └── game.component.js       # Main game interface
+│   │   ├── newGame.component.js    # Game creation & lobby
+│   │   ├── game.component.js       # Main game interface
+│   │   ├── results.component.js    # Storyboard results view
+│   │   └── ExportButton.js         # PNG export button
 │   ├── contexts/             # React contexts
 │   │   └── SocketContext.js        # Socket.IO context
 │   ├── App.js                # Main app component
@@ -201,6 +146,7 @@ Call-Draw-Present/
 - `playerJoined` - Player successfully joined
 - `playersUpdate` - Player list updated
 - `gameStarted` - Game has started
+- `timerUpdate` - Countdown tick (when timer is enabled)
 - `submissionReceived` - Submission acknowledged
 - `nextRound` - Move to next round
 - `gameComplete` - Game finished
@@ -211,19 +157,19 @@ Call-Draw-Present/
 
 1. Host creates a game and receives a 6-character code
 2. Players join using the code
-3. Host starts the game (minimum 3 players)
-4. **Round 1 (Text)**: All players write a phrase
+3. Host starts the game (minimum 3 players by default)
+4. **Round 1 (Text)**: All players write a phrase (optional theme prompt shown)
 5. **Round 2 (Drawing)**: Each player draws the previous player's phrase
 6. **Round 3 (Text)**: Each player describes the previous player's drawing
 7. Rounds continue alternating until maxRounds is reached
-8. Game ends and results are shown
+8. Game ends and results are shown as a storyboard
 
 ## 🔒 Security Notes
 
 - Games are stored in memory and cleared after 1 hour of inactivity
 - No persistent storage means no data leaks
 - No authentication required
-- CORS enabled for specified client URLs only
+- CORS restricted to the configured client URL
 
 ## 🐛 Troubleshooting
 
@@ -244,11 +190,7 @@ Call-Draw-Present/
 
 ## 🚧 Future Enhancements
 
-- [ ] Game results/history page showing full submission chain
-- [ ] Timer for each round
-- [ ] Touch/mobile drawing support
-- [ ] Custom game settings (private rooms, custom round counts)
-- [ ] Export game as shareable image
+- [ ] Touch/mobile drawing support improvements
 - [ ] Sound effects and animations
 - [ ] Voting/rating system for drawings
 - [ ] Persistent storage with MongoDB

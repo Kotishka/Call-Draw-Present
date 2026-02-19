@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ListGroup, Row, Col, Button, Alert, Card, Form, InputGroup } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
 import copy from 'copy-to-clipboard';
+import { validatePlayerName } from '../utils/validation';
 
 export default function NewGame() {
     const navigate = useNavigate();
@@ -56,18 +57,9 @@ export default function NewGame() {
     }, [socket, navigate]);
 
     const validateInputs = () => {
-        if (!playerName.trim()) {
-            setErrorMessage('Please enter your name');
-            return false;
-        }
-
-        if (playerName.trim().length < 2) {
-            setErrorMessage('Name must be at least 2 characters long');
-            return false;
-        }
-
-        if (playerName.trim().length > 20) {
-            setErrorMessage('Name must be 20 characters or less');
+        const nameError = validatePlayerName(playerName);
+        if (nameError) {
+            setErrorMessage(nameError);
             return false;
         }
 

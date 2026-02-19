@@ -2,30 +2,34 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: CLIENT_URL,
     methods: ["GET", "POST"]
   }
 });
 
-app.use(cors());
+app.use(cors({ origin: CLIENT_URL }));
 app.use(express.json());
 
 // In-memory storage
 const games = new Map();
 const players = new Map();
 
-// Generate random game code
+// Generate cryptographically random game code
 function generateGameCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
+  const bytes = crypto.randomBytes(6);
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars[bytes[i] % chars.length];
   }
   return code;
 }
@@ -47,10 +51,8 @@ app.post('/api/game/create', (req, res) => {
   const validatedMinPlayers = minPlayers && minPlayers >= 2 && minPlayers <= 10 ? minPlayers : 3;
 
   const gameCode = generateGameCode();
-  const gameId = uuidv4();
 
   const game = {
-    id: gameId,
     code: gameCode,
     hostId: null,
     status: 'WAITING',
@@ -80,6 +82,12 @@ io.on('connection', (socket) => {
 
   // Join game
   socket.on('joinGame', ({ gameCode, playerName }) => {
+    // Prevent same socket from joining twice
+    if (players.has(socket.id)) {
+      socket.emit('error', { message: 'You are already in a game.' });
+      return;
+    }
+
     // Validation
     if (!gameCode || !gameCode.trim()) {
       socket.emit('error', { message: 'Game code is required' });
@@ -185,12 +193,28 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Validate submission type
+    if (type !== 'TEXT' && type !== 'DRAWING') {
+      socket.emit('error', { message: 'Invalid submission type' });
+      return;
+    }
+
+    // Validate input size to prevent payload abuse
+    if (type === 'TEXT' && content && content.length > 1000) {
+      socket.emit('error', { message: 'Text submission is too long (max 1000 characters)' });
+      return;
+    }
+    if (type === 'DRAWING' && imageData && imageData.length > 2_000_000) {
+      socket.emit('error', { message: 'Drawing submission is too large' });
+      return;
+    }
+
     const submission = {
       id: uuidv4(),
       playerId: player.id,
       playerName: player.name,
       round: game.currentRound,
-      type: type, // 'TEXT' or 'DRAWING'
+      type: type,
       content: content,
       imageData: imageData,
       submittedAt: new Date().toISOString()
@@ -289,16 +313,6 @@ io.on('connection', (socket) => {
           playerName: player.name,
           players: game.players
         });
-
-        // If game is empty, delete it after 1 hour
-        if (game.players.length === 0) {
-          setTimeout(() => {
-            if (games.get(player.gameCode)?.players.length === 0) {
-              games.delete(player.gameCode);
-              console.log(`Deleted empty game ${player.gameCode}`);
-            }
-          }, 3600000); // 1 hour
-        }
       }
 
       players.delete(socket.id);
