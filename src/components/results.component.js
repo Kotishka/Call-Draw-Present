@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Alert, Spinner, Accordion, Badge } from 'react-bootstrap';
+import ExportButton from './ExportButton';
 
 export default function Results() {
     const { code } = useParams();
@@ -8,6 +9,9 @@ export default function Results() {
     const [chains, setChains] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [activeKeys, setActiveKeys] = useState(['0']);
+    const fullGameRef = useRef(null);
+    const chainRefs = useRef([]);
 
     useEffect(() => {
         loadResults();
@@ -105,10 +109,18 @@ export default function Results() {
 
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h3 className="mb-0">Submission Chains</h3>
+                <ExportButton
+                    targetRef={fullGameRef}
+                    filename={`call-draw-present-${code}`}
+                    label="Export Full Game"
+                    variant="outline-primary"
+                    size="sm"
+                />
             </div>
             <p className="text-muted mb-4">Follow each chain from start to finish to see how the phrase evolved</p>
 
-            <Accordion defaultActiveKey="0">
+            <div ref={fullGameRef}>
+            <Accordion activeKey={activeKeys} onSelect={(key) => setActiveKeys(key ? [key] : [])}>
                 {chains.map((chain, index) => (
                     <Accordion.Item eventKey={index.toString()} key={index}>
                         <Accordion.Header>
@@ -119,13 +131,23 @@ export default function Results() {
                             {chain.submissions.length === 0 ? (
                                 <Alert variant="info">No submissions in this chain</Alert>
                             ) : (
+                                <>
+                                <div className="d-flex justify-content-end mb-2">
+                                    <ExportButton
+                                        targetRef={{ current: chainRefs.current[index] }}
+                                        filename={`chain-${index + 1}-${chain.startPlayer.name}`}
+                                        label="Export Chain"
+                                    />
+                                </div>
                                 <div
+                                    ref={el => chainRefs.current[index] = el}
                                     style={{
                                         display: 'flex',
                                         overflowX: 'auto',
                                         gap: '0',
                                         padding: '8px 0 16px 0',
-                                        alignItems: 'stretch'
+                                        alignItems: 'stretch',
+                                        background: '#fff'
                                     }}
                                 >
                                     {chain.submissions.map((submission, subIndex) => (
@@ -181,11 +203,13 @@ export default function Results() {
                                         </React.Fragment>
                                     ))}
                                 </div>
+                                </>
                             )}
                         </Accordion.Body>
                     </Accordion.Item>
                 ))}
             </Accordion>
+            </div>
 
             <div className="text-center mt-5 mb-4">
                 <Button variant="primary" size="lg" onClick={() => navigate('/')}>
